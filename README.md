@@ -7,5 +7,5 @@
 4. Wait, Notify, NotifyAll
 5. Non Blocking Algorithm
 6. Пулы
-7. NIO и многопоточность
+7. NIO
 8. Работа с git
