@@ -1,36 +1,21 @@
 package org.example.concurrent;
 
-import java.util.concurrent.CountDownLatch;
-
 public class ThreadState {
-    public static void main(String[] args) throws InterruptedException {
-        /**
-         * Ожидаем завершения 2 потоков
-         */
-        CountDownLatch latch = new CountDownLatch(2);
+    public static void main(String[] args) {
+        Thread first = new Thread(() ->
+                System.out.println("First thread finished"));
 
-        Thread first = new Thread(() -> {
-            System.out.println("First thread finished");
-            /**
-             * Уменьшаем счетчик
-             */
-            latch.countDown();
-        });
-
-        Thread second = new Thread(() -> {
-            System.out.println("Second thread finished");
-            /**
-             * Уменьшаем счетчик
-             */
-            latch.countDown();
-        });
+        Thread second = new Thread(() ->
+                System.out.println("Second thread finished"));
 
         first.start();
         second.start();
-        /**
-         * Ждем, пока счетчик не станет 0
-         */
-        latch.await();
+        while (first.getState() != Thread.State.TERMINATED) {
+            System.out.println(first.getState());
+        }
+        while (second.getState() != Thread.State.TERMINATED) {
+            System.out.println(first.getState());
+        }
         System.out.println("All threads finished!");
     }
 }
