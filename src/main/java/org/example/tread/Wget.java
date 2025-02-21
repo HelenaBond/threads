@@ -1,49 +1,87 @@
 package org.example.tread;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
+
+import java.io.*;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
 
 public class Wget implements Runnable {
-    private final String url;
-    private final int speed;
 
-    public Wget(String url, int speed) {
-        this.url = url;
-        this.speed = speed;
-    }
+    @Parameter(names = {"-f", "--file"},
+            description = "Название файла",
+            required = true)
+    private String name;
+
+    @Parameter(names = {"-u", "--url"},
+            description = "URL для скачивания",
+            required = true)
+    private String url;
+
+    @Parameter(names = {"-s", "--speed"},
+            description = "Ограничение скорости",
+            required = true,
+            validateWith = PositiveSpeedValidator.class)
+    private int speed;
 
     @Override
     public void run() {
-        var startAt = System.currentTimeMillis();
-        var file = new File("tmp.xml");
-        try (var input = new URL(url).openStream();
-             var output = new FileOutputStream(file)) {
-            System.out.println("Open connection: " + (System.currentTimeMillis() - startAt) + " ms");
+        URL currUrl = validUrl(url);
+        File file = new File(name);
+        try (var input = new BufferedInputStream(currUrl.openStream());
+             var output = new BufferedOutputStream(new FileOutputStream(file))) {
+
             var dataBuffer = new byte[1024];
             int bytesRead;
-            while ((bytesRead = input.read(dataBuffer, 0, dataBuffer.length)) != -1) {
-                var downloadAt = System.nanoTime();
+            long startAt = System.currentTimeMillis();
+            long downloadedBytes = 0;
+
+            while (!Thread.currentThread().isInterrupted()
+                    && (bytesRead = input.read(dataBuffer, 0, dataBuffer.length)) != -1) {
                 output.write(dataBuffer, 0, bytesRead);
-                var time = System.nanoTime() - downloadAt;
-                System.out.println("Read 1024 bytes : " + time + " nano.");
-                int currSpeed = (1024_000_000) / (int) time;
-                int pause = currSpeed / speed;
-                System.out.println(pause);
-                Thread.sleep(pause);
+
+                downloadedBytes += bytesRead;
+
+                if (downloadedBytes >= speed) {
+                    long elapsed = System.currentTimeMillis() - startAt;
+                    if (elapsed < 1000) {
+                        try {
+                            Thread.sleep(1000 - elapsed);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
+                    downloadedBytes = 0;
+                    startAt = System.currentTimeMillis();
+                }
             }
-            System.out.println(Files.size(file.toPath()) + " bytes");
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
+    private URL validUrl(String value) {
+        try {
+            URL currUrl = new URL(value);
+            if (!currUrl.getProtocol().matches("https?")) {
+                throw new ParameterException("URL должен начинаться с http или https");
+            }
+            return currUrl;
+        } catch (MalformedURLException e) {
+            throw new ParameterException("Некорректный URL: " + value);
+        }
+    }
+
     public static void main(String[] args) throws InterruptedException {
-        String url = args[0];
-        int speed = Integer.parseInt(args[1]);
-        Thread wget = new Thread(new Wget(url, speed));
+        Wget wgetObj = new Wget();
+        JCommander.newBuilder()
+                .addObject(wgetObj)
+                .build()
+                .parse(args);
+        Thread wget = new Thread(wgetObj);
         wget.start();
         wget.join();
     }
