@@ -1,5 +1,7 @@
 package org.example.streaminoop;
 
+import java.util.concurrent.CompletableFuture;
+
 public class TgService extends LongPoll {
     private final VoiceHandle voiceHandle;
 
@@ -9,8 +11,14 @@ public class TgService extends LongPoll {
 
     @Override
     void receive(String message) {
-        voiceHandle.process(message)
-                .forEach(this::sent);
+        var messages = voiceHandle.process(message, this::asyncSent);
+    }
+
+    public void asyncSent(String message) {
+        /**
+         * реализация мгновенной отправки
+         */
+        CompletableFuture.runAsync(() -> sent(message));
     }
 
     public static void main(String[] args) {

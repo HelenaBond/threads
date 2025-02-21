@@ -1,25 +1,29 @@
 package org.example.streaminoop;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public class VoiceHandle {
-    public Stream<String> process(String message) {
-        return IntStream.range(0, 5)
+    public List<String> process(String message, Consumer<String> receive) {
+        var result = new ArrayList<String>();
+        IntStream.range(0, 5).forEach(it -> {
+            try {
+                Thread.sleep(1000);
+                var resp = String.format("Message: %s", it);
                 /**
-                 * Если важен порядок обработки (0, 1, 2, 3, 4), то НЕ нужно делать параллельно.
-                 * Если скорость важнее порядка, можно добавить .parallel(),
-                 * чтобы все 5 сообщений обрабатывались одновременно.
+                 * мгновенная отправка сгенерированного сообщения поштучно
                  */
-                .parallel()
-                .mapToObj(it -> {
-                    try {
-                        Thread.sleep(1000);
-                        return String.format("Message: %s", it);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException(e);
-                    }
-                });
+                receive.accept(resp);
+                /**
+                 * собираем сгенерированные сообщения для постобработки
+                 */
+                result.add(resp);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        return result;
     }
 }
